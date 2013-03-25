@@ -31,5 +31,5 @@ Usage
 Launch musicRadar:
 	python musicRadar.py
 
-1. add colours object to the camera's field of view to trigger samples
+1. add coloured object to the camera's field of view to trigger samples
 2. ...
