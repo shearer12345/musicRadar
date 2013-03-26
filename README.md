@@ -29,6 +29,7 @@ Usage
 =====
 
 Launch musicRadar:
+
     python musicRadar.py
 
 1. add colours object to the camera's field of view to trigger samples
