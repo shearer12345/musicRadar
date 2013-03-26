@@ -3,7 +3,7 @@ Created on 6 Sep 2012
 
 @author: shearer
 '''
-import sys, time
+import sys, time, math
 
 import numpy as np
 try:
@@ -74,15 +74,31 @@ def fluid_test(delay=0.5, instrument=0):
         time.sleep(delay)
         synth.noteoff(0, note)
     
-     
+def triggerNextBar(startTicks, sequencer, ticksPerBar, c_scale):
     
+    global barCounter
+    ticksNow = sequencer.ticks
+    ticksElapsed = ticksNow - startTicks
+    bar = int(math.ceil(ticksElapsed / ticksPerBar))
+    print bar
     
+    if bar > barCounter:
+        barCounter = bar
+        print 'adding sequence'
+        ticksNextBarStart = (bar * ticksPerBar) + ticksNow
+#        sequencer.send(c_scale[0], ticksNextBarStart)
+
+        
+#    sequencer.send(c_scale[5], ticks)
+#    sequencer.send(c_scale[9], ticks)
+    pass
+
 if __name__ == '__main__':
 #    cv2.namedWindow('window1', cv2.WINDOW_AUTOSIZE)
 
     
     #PARAMS
-    index = 0
+    index = 1
     resolution = (640,480)
     brightness = 0.2
     contrast = 0.4
@@ -174,7 +190,41 @@ if __name__ == '__main__':
     #channel = 3
 
     pentScale = (61, 63, 66, 68, 70, 73, 75, 78, 80, 83, 86)
+    
+    sequencer = fluidsynth.FluidSequencer()
+    sequencer.beats_per_minute = 120
+    beat_length = sequencer.ticks_per_beat
+    
+    print "BPM:", sequencer.beats_per_minute
+    print "TPB:", sequencer.ticks_per_beat
+    print "TPS:", sequencer.ticks_per_second
+    
+    tps = sequencer.ticks_per_second
+    print type(tps), tps
+    
+    dest = sequencer.add_synth(synth)
+    
+    c_scale = []
+
+    for note in range(60, 72):
+        event = fluidsynth.FluidEvent()
+        event.dest = dest[0]
+        event.note(0, note, 127, int(beat_length*0.9))
+        c_scale.append(event)
+        
+    startTicks = sequencer.ticks
+    notesPerBar = 4
+    barCounter = -1
+    
+    ticksPerBar = notesPerBar * sequencer.ticks_per_beat
+    
+    print 'ticksPerBar: ', ticksPerBar
+    triggerNextBar(startTicks, sequencer, ticksPerBar, c_scale)
+    
+    
     while True:
+    
+        triggerNextBar(startTicks, sequencer, ticksPerBar, c_scale)
     
         ret, activeImage = videoCapture.read()
              
@@ -306,7 +356,10 @@ if __name__ == '__main__':
                 
             for note in noteToTurnOnSetList[channelListIndex]:
                 #print 'note ' + str(note) + ' on'
+                
+                #TODO comments to disable this trigger
                 synth.noteon(channelList[channelListIndex], note, 127)
+                pass
                 
             #copy the tobe list to the on list
             noteOnSetList[channelListIndex] = noteToBeOnSetList[channelListIndex]
