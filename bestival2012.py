@@ -105,6 +105,7 @@ if __name__ == '__main__':
     saturation = 0.73
     gain = 1.0
     exposure = 1.0
+    hue = 0
 
     cropWidth = 20
     topCut = 0
@@ -181,6 +182,7 @@ if __name__ == '__main__':
     videoCapture.set(cv2.cv.CV_CAP_PROP_SATURATION, saturation)
     videoCapture.set(cv2.cv.CV_CAP_PROP_GAIN, gain)
     videoCapture.set(cv2.cv.CV_CAP_PROP_EXPOSURE, exposure)
+    videoCapture.set(cv2.cv.CV_CAP_PROP_HUE, hue)
     
     activeImage = cv2.imread('loading.jpg')
     
