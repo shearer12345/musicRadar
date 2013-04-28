@@ -4,34 +4,31 @@ Created on 6 Sep 2012
 @author: shearer
 '''
 
-#main Params
-
-bpm = 120
+bpm = 210
 cam = 2
 
 resolution = (640,480)
     
 #Region params
-if cam == 1:
-    sampleWidth = 20
-    edgeLeft1 = resolution[0] * 0.22
-    edgeRight1 = resolution[0] * 0.7
-    edgeTop1 = resolution[1] * 0.15
-    edgeBottom1 = resolution[1] * 0.75
-    brightness = 0.15
-    contrast = 0.05
-    saturation = 0.5
-    gain = 0.5
-    exposure = 1.0
-    hue = 0
+sampleWidth = 1
+edgeLeft1 = resolution[0] * 0.22
+edgeRight1 = resolution[0] * 0.7
+edgeTop1 = resolution[1] * 0.15
+edgeBottom1 = resolution[1] * 0.75
+brightness = 0.15
+contrast = 0.05
+saturation = 0.5
+gain = 0.5
+exposure = 1.0
+hue = 0
 if cam == 2:
-    sampleWidth = 20
-    edgeLeft1 = resolution[0] * 0.22
-    edgeRight1 = resolution[0] * 0.7
-    edgeTop1 = resolution[1] * 0.15
-    edgeBottom1 = resolution[1] * 0.75
+    sampleWidth = 1
+    edgeLeft1 = resolution[0] * 0.25
+    edgeRight1 = resolution[0] * 0.78
+    edgeTop1 = resolution[1] * 0.08
+    edgeBottom1 = resolution[1] * 0.67
     brightness = 0.1
-    contrast = 0.10
+    contrast = 0.05
     saturation = 0.5
     gain = 0.5
     exposure = 1.0
@@ -139,7 +136,7 @@ def checkBar():
     barTimeNormalised = float(( ticksNow - (ticksPerBar * bar))) / float(ticksPerBar)
     
     
-    print 'barTime=', barTimeNormalised, 'bar=', bar, 'beatInBar', beatInBar#, 'beat=', beat, 'nextBarStarts=', nextBarStartTicks, 'nextBeatStarts=', nextBeatStartTicks
+    #print 'barTime=', barTimeNormalised, 'bar=', bar, 'beatInBar', beatInBar#, 'beat=', beat, 'nextBarStarts=', nextBarStartTicks, 'nextBeatStarts=', nextBeatStartTicks
     
 if __name__ == '__main__':
 #    cv2.namedWindow('window1', cv2.WINDOW_AUTOSIZE)
@@ -295,8 +292,18 @@ if __name__ == '__main__':
     #channel =0
     #channel = 3
 
-    pentScale = (61, 63, 66, 68, 70, 73, 75, 78, 80, 83, 86)
+    scalePent = (61, 63, 66, 68, 70,
+             73, 75, 78, 80, 83, 
+             85, 87, 90, 92, 95,
+             97)
     
+    scaleWhole = (61, 63, 65, 66, 68, 70, 72,
+                  73, 75, 77, 79, 80, 82, 84,
+                  85, 87, 89, 91, 92, 94, 95,
+                  97)
+    
+    #scaleCr
+    scale = scalePent#scaleWhole
     sequencer = fluidsynth.FluidSequencer()
     sequencer.beats_per_minute = bpm
     beat_length = sequencer.ticks_per_beat
@@ -351,7 +358,7 @@ if __name__ == '__main__':
         x2 = x1 + sampleWidth
         y1 = edgeTop1
         y2 = edgeBottom1
-        print 'x1', x1
+        
         rect1 = recolouredImage1[y1:y2, x1:x2]
         cv2.imshow(cutFrame1, rect1)  
         
@@ -369,7 +376,7 @@ if __name__ == '__main__':
         yellowMask = colorFind(hsv1, color=yellow, tightness=40, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
         greenMask =  colorFind(hsv1, color=green, tightness=20, threshold=thresh, satMin=50, valueMin=50, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
         cyanMask = colorFind(hsv1, color=cyan, tightness=15, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
-        blueMask = colorFind(hsv1, color=blue, tightness=15, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
+        blueMask = colorFind(hsv1, color=blue, tightness=17, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
         magentaMask = colorFind(hsv1, color=magenta, tightness=20, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
         
         cv2.imshow(redFrame1, redMask)
@@ -386,6 +393,8 @@ if __name__ == '__main__':
         noteRangeList = [4, 5]
         noteMinList = [40, 0]
     
+        lastNote = -50
+        lastNoteThresh = 0
         drums = 0
         melody = 1
         for index, value in enumerate(redMask):
@@ -394,12 +403,14 @@ if __name__ == '__main__':
                     r = noteRangeList[melody]
                     m = noteMinList[melody]
                     note = int((float(index) * (r/400.0))+m)
-                    note = pentScale[note % len(pentScale)]
-                    #print index, note
-                    #noteToBeOnSetList[melody].add(note)
-                    #break
+                    note = scale[note % len(scale)]
+                    if (lastNote < 0 or abs(note - lastNote) < lastNoteThresh): #prevent notes too near
+                        lastNote = note
+                        #print index, note
+                        #noteToBeOnSetList[melody].add(note)
+                        break
     
-
+        lastNote = -50
         for index, value in enumerate(yellowMask):
             for index2, value in enumerate(value):
                 if value > 0:
@@ -407,59 +418,74 @@ if __name__ == '__main__':
                     r = noteRangeList[drums]
                     m = noteMinList[drums]
                     note = int((float(index) * (r/400.0))+m)
-                    #print index, note
-                    #noteToBeOnSetList[drums].add(note)
-                    break
+                    if (lastNote < 0 or abs(note - lastNote) < lastNoteThresh): #prevent notes too near
+                        lastNote = note
+                        #print index, note
+                        #noteToBeOnSetList[drums].add(note)
+                        break
         
         #3
+        lastNote = -50
         for index, value in enumerate(greenMask):
             for index2, value in enumerate(value):
                 if value > 0:
                     r = noteRangeList[drums]
                     m = noteMinList[drums]
                     note = int((float(index) * (r/400.0))+m)
-                    #note = pentScale[note]
-                    #print index, note
-                    #noteToBeOnSetList[drums].add(note)
-                    #break
+                    #note = scale[note]
+                    if (lastNote < 0 or abs(note - lastNote) < lastNoteThresh): #prevent notes too near
+                        lastNote = note
+                        #print index, note
+                        #noteToBeOnSetList[drums].add(note)
+                        #break
                     
-                    
-        #4 this gets hit for ORANGE
+        lastNote=-50
+        #4 this gets hit for ORANGE - mainDrum
         for index, value in enumerate(cyanMask):
             for index2, value in enumerate(value):
                 if value > 0:
                     r = noteRangeList[drums]
                     m = noteMinList[drums]
-                    note = int((float(index) * (r/400.0))+m)
-                    #note = pentScale[note]
-                    note = m
-#print index, note
-                    noteToBeOnSetList[drums].add(note)
-                    break
-        
-        #5 #this gets hit for YELLOW               
+                    note = int((float(index) * (r/200.0))+m)
+                    #note = scale[note]
+                    if (lastNote < 0 or abs(note - lastNote) < lastNoteThresh): #prevent notes too near
+                        lastNote = note
+                        print m, note
+                        #note = m 
+                        #print index, note
+                        noteToBeOnSetList[drums].add(note)
+                        #break
+                    
+        #5 #this gets hit for YELLOW - mainMelodic               
         for index, value in enumerate(blueMask):
             for index2, value in enumerate(value):
                 if value > 0:
                     r = noteRangeList[melody]
                     m = noteMinList[melody]
-                    note = int((float(index) * (r/400.0))+m)
-                    note = pentScale[note % len(pentScale)]
+                    note = int((float(index) * (r/100.0))+m)
+                    print note, 
+                    note = scale[note % len(scale)]
+                    print note
                     #print index, note
-                    noteToBeOnSetList[melody].add(note)
-                    break
+                    if (lastNote < 0 or abs(note - lastNote) < lastNoteThresh): #prevent notes too near
+                        lastNote = note
+                        noteToBeOnSetList[melody].add(note)
+                        break
 
         #6
+        lastNote = - 50
         for index, value in enumerate(magentaMask):
             for index2, value in enumerate(value):
                 if value > 0:
                     r = noteRangeList[drums]
                     m = noteMinList[drums]
                     note = int((float(index) * (r/400.0))+m)
-                    #note = pentScale[note]
+                    #note = scale[note]
 #print index, note
-                    noteToBeOnSetList[drums].add(note)
-                    break
+                    if (lastNote < 0 or abs(note - lastNote) < lastNoteThresh): #prevent notes too near
+                        lastNote = note
+                        noteToBeOnSetList[drums].add(note)
+                        break
                             
         #stop all on that shouldn't be and start those that should be
 
