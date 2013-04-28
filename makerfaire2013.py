@@ -8,31 +8,32 @@ import sys, time, math
 import numpy as np
 try:
     import cv2
-    f = cv2.moveWindow
+    from cv2.cv import CV_CAP_PROP_FRAME_WIDTH, CV_CAP_PROP_FRAME_HEIGHT, CV_CAP_PROP_BRIGHTNESS, CV_CAP_PROP_CONTRAST, CV_CAP_PROP_SATURATION, CV_CAP_PROP_GAIN, CV_CAP_PROP_EXPOSURE, CV_CAP_PROP_HUE
+    
+    f = cv2.moveWindow #test
 except ImportError:
     print 'Cannot import cv2. See http://pranith.wordpress.com/2012/11/29/opencv-2-4-2-in-ubuntu/ for instructions. Try "sudo apt-add-repository ppa:bobby-prani/opencv-2.4.2 \ sudo apt-get update \ sudo apt-get install python-opencv". Exiting!'
     sys.exit(0) 
 
 try: 
-    from fluidsynth import fluidsynth
-    #TODO test fluidsynth - sudo apt-get install fluidsynth fluid-soundfont-gm
-except ImportError:
+    from fluidsynth import fluidsynth    
+except ImportError as e:
     print 'Cannot import fluidsynth. Try "sudo pip install fluidsynth". More details at https://pypi.python.org/pypi/fluidsynth. Exiting!'
+    print 'Full error is: ', e
     sys.exit(0)    
 
 
-#on linux - sudo apt-get install fluidsynth
-
 def colorFind(hsvinput, color=124, tightness=20, threshold=50, satMin=50, valueMin=50, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0):
-    mask1 = cv2.inRange(hsv, np.array((color-tightness, satMin, valueMin)), np.array((color+tightness, satMax, valueMax)))
-    mask2 = cv2.inRange(hsv, np.array((255.0+color-tightness, satMin, valueMin)), np.array((255.0+color+tightness, satMax, valueMax)))
+    '''TODO what do this do?'''
+    mask1 = cv2.inRange(hsv1, np.array((color-tightness, satMin, valueMin)), np.array((color+tightness, satMax, valueMax)))
+    mask2 = cv2.inRange(hsv1, np.array((255.0+color-tightness, satMin, valueMin)), np.array((255.0+color+tightness, satMax, valueMax)))
     mask = cv2.add(mask1, mask2)
     mask = cv2.GaussianBlur(src=mask, ksize=kernelSize, sigmaX=sigmaX, sigmaY=sigmaY)
-    mask = cv2.resize(mask, (1, height))
+    mask = cv2.resize(mask, (1, height1))
     mask = cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
     mask = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
     ret, mask = cv2.threshold(src=mask, thresh=threshold, maxval=255, type=cv2.THRESH_BINARY)
-    #mask = cv2.resize(mask, (width, height))
+    #mask = cv2.resize(mask, (width1, height1))
     return mask
 
 
@@ -43,7 +44,13 @@ def fluid_init():
     settings = fluidsynth.FluidSettings()
     settings.quality = "low"
     synth = fluidsynth.FluidSynth(settings)
-    synth.load_soundfont('/usr/share/sounds/sf2/FluidR3_GM.sf2')
+    soundFontFile = '/usr/share/sounds/sf2/FluidR3_GM.sf2'
+    try:
+        synth.load_soundfont(soundFontFile)
+    except fluidsynth.FluidError:
+        print "Couldn't load soundfont file: '", "/usr/share/sounds/sf2/dFluidR3_GM.sf2'"
+        print "Try 'sudo apt-get install fluid-soundfont-gm'"
+        sys.exit(0)    
     
     driver = fluidsynth.FluidAudioDriver(settings, synth)
         
@@ -64,7 +71,7 @@ def fluid_init():
     synth.program_change(12, 123) #
 
     
-def fluid_test(delay=0.5, instrument=0):
+def fluid_test(delay=0.2, instrument=9):
     global synth
     
     scale = (0, 1, 2, 3, 4, 5, 6, 7, 8, 60, 62, 64, 65, 67, 69, 71, 72)
@@ -73,43 +80,75 @@ def fluid_test(delay=0.5, instrument=0):
         synth.noteon(0, note, 127)
         time.sleep(delay)
         synth.noteoff(0, note)
+    time.sleep(delay)
     
-def triggerNextBar(startTicks, sequencer, ticksPerBar, c_scale):
+def checkBar():
     
-    global barCounter
+    global sequencer, startTicks
+    global beatsPerBar, ticksPerBar
+    global barCounter, beatCounter
+    global nextBarStartTicks, nextBeatStartTicks
     ticksNow = sequencer.ticks
     ticksElapsed = ticksNow - startTicks
-    bar = int(math.ceil(ticksElapsed / ticksPerBar))
-    print bar
     
-    if bar > barCounter:
-        barCounter = bar
-        print 'adding sequence'
-        ticksNextBarStart = (bar * ticksPerBar) + ticksNow
-#        sequencer.send(c_scale[0], ticksNextBarStart)
-
-        
-#    sequencer.send(c_scale[5], ticks)
-#    sequencer.send(c_scale[9], ticks)
-    pass
-
+#    print 'ticksNow', ticksNow
+#    print 'ticksElapsed', ticksElapsed
+    
+    bar = int(math.ceil(ticksElapsed / ticksPerBar))
+    beat = int(math.ceil( (ticksElapsed / sequencer.ticks_per_beat))) 
+    beatInBar =  beat % beatsPerBar
+    
+    nextBarStartTicks = (bar +1) * ticksPerBar
+    nextBeatStartTicks = (beat + 1) * sequencer.ticks_per_beat
+    
+    print 'bar=', bar, 'beat=', beat, 'nextBarStarts=', nextBarStartTicks, 'nextBeatStarts=', nextBeatStartTicks
+    
 if __name__ == '__main__':
 #    cv2.namedWindow('window1', cv2.WINDOW_AUTOSIZE)
 
     
-    #PARAMS
+    #Camera params
     index = 1
     resolution = (640,480)
-    brightness = 0.2
-    contrast = 0.4
-    saturation = 0.73
+    brightness = 0.1
+    contrast = 0.1
+    saturation = 0.53
     gain = 1.0
     exposure = 1.0
     hue = 0
+    
+    cam1 = cv2.VideoCapture(1)
+    cam1.set(CV_CAP_PROP_FRAME_WIDTH, resolution[0])
+    cam1.set(CV_CAP_PROP_FRAME_HEIGHT, resolution [1])
+    #videoCapture = cv2.VideoCapture(index, resolution)
+    
+    cam1.set(CV_CAP_PROP_BRIGHTNESS, brightness)
+    cam1.set(CV_CAP_PROP_CONTRAST, contrast)
+    cam1.set(CV_CAP_PROP_SATURATION, saturation)
+    cam1.set(CV_CAP_PROP_GAIN, gain)
+    cam1.set(CV_CAP_PROP_EXPOSURE, exposure)
+    cam1.set(CV_CAP_PROP_HUE, hue)
 
-    cropWidth = 20
-    topCut = 0
-    bottomCut = 98
+    cam2 = cv2.VideoCapture(0)
+    cam2.set(CV_CAP_PROP_FRAME_WIDTH, resolution[0])
+    cam2.set(CV_CAP_PROP_FRAME_HEIGHT, resolution [1])
+    #videoCapture = cv2.VideoCapture(index, resolution)
+    
+    cam2.set(CV_CAP_PROP_BRIGHTNESS, brightness)
+    cam2.set(CV_CAP_PROP_CONTRAST, contrast)
+    cam2.set(CV_CAP_PROP_SATURATION, saturation)
+    cam2.set(CV_CAP_PROP_GAIN, gain)
+    cam2.set(CV_CAP_PROP_EXPOSURE, exposure)
+    cam2.set(CV_CAP_PROP_HUE, hue)
+    
+    #Region params
+    cropWidth1 = 20
+    topCut1 = 0
+    bottomCut1 = 98
+    
+    cropWidth2 = 20
+    topCut2 = 0
+    bottomCut2 = 98
         
     kernelSize = (9, 9) #must be positive and odd
     
@@ -123,68 +162,108 @@ if __name__ == '__main__':
     valueMin = 40
     valueMax = 255
 
-
-    fluid_init()
+    fluid_init() #initialiser fluidsynth
     
+    #make windows    
     rollingX = 0
     rollingY = 0
     
-    fullFrame = 'fullframe'
-    cv2.namedWindow(fullFrame)
-    cv2.moveWindow(fullFrame, rollingX, rollingY)
-    rollingX += 640
+    #CAM1 DISPLAY
+    fullFrame1 = 'fullframe1'
+    cv2.namedWindow(fullFrame1)
+    cv2.moveWindow(fullFrame1, rollingX, rollingY)
+    rollingX += resolution[0]
+        
+    cutFrame1 = 'cutframe1'
+    cv2.namedWindow(cutFrame1)
+    cv2.moveWindow(cutFrame1, rollingX, rollingY)
+    rollingX += cropWidth1
     
+    smoothedFrame1 = 'smoothedFrame1'
+    cv2.namedWindow(smoothedFrame1)
+    cv2.moveWindow(smoothedFrame1, rollingX, rollingY)
+    rollingX += cropWidth1
     
-    cutFrame = 'cutframe'
-    cv2.namedWindow(cutFrame)
-    cv2.moveWindow(cutFrame, rollingX, rollingY)
-    rollingX += cropWidth
+    redFrame1 = 'redFrame1'
+    cv2.namedWindow(redFrame1)
+    cv2.moveWindow(redFrame1, rollingX, rollingY)
+    rollingX += cropWidth1
     
-    smoothedFrame = 'smoothedFrame'
-    cv2.namedWindow(smoothedFrame)
-    cv2.moveWindow(smoothedFrame, rollingX, rollingY)
-    rollingX += cropWidth
-    
-    redFrame = 'redFrame'
-    cv2.namedWindow(redFrame)
-    cv2.moveWindow(redFrame, rollingX, rollingY)
-    rollingX += cropWidth
-    
-    yellowFrame = 'yellowFrame'
-    cv2.namedWindow(yellowFrame)
-    cv2.moveWindow(yellowFrame, rollingX, rollingY)
-    rollingX += cropWidth
+    yellowFrame1 = 'yellowFrame1'
+    cv2.namedWindow(yellowFrame1)
+    cv2.moveWindow(yellowFrame1, rollingX, rollingY)
+    rollingX += cropWidth1
                     
-    greenFrame = 'greenFrame'
-    cv2.namedWindow(greenFrame)
-    cv2.moveWindow(greenFrame, rollingX, rollingY)
-    rollingX += cropWidth
+    greenFrame1 = 'greenFrame1'
+    cv2.namedWindow(greenFrame1)
+    cv2.moveWindow(greenFrame1, rollingX, rollingY)
+    rollingX += cropWidth1
     
-    cyanFrame = 'cyanFrame'
-    cv2.namedWindow(cyanFrame)
-    cv2.moveWindow(cyanFrame, rollingX, rollingY)
-    rollingX += cropWidth
+    cyanFrame1 = 'cyanFrame1'
+    cv2.namedWindow(cyanFrame1)
+    cv2.moveWindow(cyanFrame1, rollingX, rollingY)
+    rollingX += cropWidth1
     
-    blueFrame = 'blueFrame'
-    cv2.namedWindow(blueFrame)
-    cv2.moveWindow(blueFrame, rollingX, rollingY)
-    rollingX += cropWidth
+    blueFrame1 = 'blueFrame1'
+    cv2.namedWindow(blueFrame1)
+    cv2.moveWindow(blueFrame1, rollingX, rollingY)
+    rollingX += cropWidth1
     
-    magentaFrame = 'magentaFrame'
-    cv2.namedWindow(magentaFrame)
-    cv2.moveWindow(magentaFrame, rollingX, rollingY)
-    rollingX += cropWidth
+    magentaFrame1 = 'magentaFrame1'
+    cv2.namedWindow(magentaFrame1)
+    cv2.moveWindow(magentaFrame1, rollingX, rollingY)
+    rollingX += cropWidth1
+  
+    #CAM2 DISPLAY
+    rollingX = 0
+    rollingY += resolution[1]
     
-    videoCapture = cv2.VideoCapture(index)
+    fullFrame2 = 'fullframe2'
+    cv2.namedWindow(fullFrame2)
+    cv2.moveWindow(fullFrame2, rollingX, rollingY)
+    rollingX += resolution[0]
+        
+    cutFrame2 = 'cutframe2'
+    cv2.namedWindow(cutFrame2)
+    cv2.moveWindow(cutFrame2, rollingX, rollingY)
+    rollingX += cropWidth2
     
-    videoCapture.set(cv2.cv.CV_CAP_PROP_BRIGHTNESS, brightness)
-    videoCapture.set(cv2.cv.CV_CAP_PROP_CONTRAST, contrast)
-    videoCapture.set(cv2.cv.CV_CAP_PROP_SATURATION, saturation)
-    videoCapture.set(cv2.cv.CV_CAP_PROP_GAIN, gain)
-    videoCapture.set(cv2.cv.CV_CAP_PROP_EXPOSURE, exposure)
-    videoCapture.set(cv2.cv.CV_CAP_PROP_HUE, hue)
+    smoothedFrame2 = 'smoothedFrame2'
+    cv2.namedWindow(smoothedFrame2)
+    cv2.moveWindow(smoothedFrame2, rollingX, rollingY)
+    rollingX += cropWidth2
     
-    activeImage = cv2.imread('loading.jpg')
+    redFrame2 = 'redFrame2'
+    cv2.namedWindow(redFrame2)
+    cv2.moveWindow(redFrame2, rollingX, rollingY)
+    rollingX += cropWidth2
+    
+    yellowFrame2 = 'yellowFrame2'
+    cv2.namedWindow(yellowFrame2)
+    cv2.moveWindow(yellowFrame2, rollingX, rollingY)
+    rollingX += cropWidth2
+                    
+    greenFrame2 = 'greenFrame2'
+    cv2.namedWindow(greenFrame2)
+    cv2.moveWindow(greenFrame2, rollingX, rollingY)
+    rollingX += cropWidth2
+    
+    cyanFrame2 = 'cyanFrame2'
+    cv2.namedWindow(cyanFrame2)
+    cv2.moveWindow(cyanFrame2, rollingX, rollingY)
+    rollingX += cropWidth2
+    
+    blueFrame2 = 'blueFrame2'
+    cv2.namedWindow(blueFrame2)
+    cv2.moveWindow(blueFrame2, rollingX, rollingY)
+    rollingX += cropWidth2
+    
+    magentaFrame2 = 'magentaFrame2'
+    cv2.namedWindow(magentaFrame2)
+    cv2.moveWindow(magentaFrame2, rollingX, rollingY)
+    rollingX += cropWidth2
+    
+    activeImage1 = cv2.imread('loading.jpg')
     
     noteOnSetList = [set([]), set([])]
     channelList = [9, 11]
@@ -206,6 +285,8 @@ if __name__ == '__main__':
     
     dest = sequencer.add_synth(synth)
     
+    #fluidTestSequencer(sequencer)
+    
     c_scale = []
 
     for note in range(60, 72):
@@ -215,57 +296,56 @@ if __name__ == '__main__':
         c_scale.append(event)
         
     startTicks = sequencer.ticks
-    notesPerBar = 4
+    beatsPerBar = 4
     barCounter = -1
+    beatCounter = -1
+    nextBarStartTicks = -1
+    nextBeatStartTicks = -1
     
-    ticksPerBar = notesPerBar * sequencer.ticks_per_beat
-    
-    print 'ticksPerBar: ', ticksPerBar
-    triggerNextBar(startTicks, sequencer, ticksPerBar, c_scale)
-    
+    ticksPerBar = beatsPerBar * sequencer.ticks_per_beat
     
     while True:
     
-        triggerNextBar(startTicks, sequencer, ticksPerBar, c_scale)
-    
-        ret, activeImage = videoCapture.read()
+        checkBar()
+        
+        ret, activeImage1 = cam1.read()
              
-        imageHeight = activeImage.shape[0]
-        imageWidth = activeImage.shape[1]
+        imageHeight1 = activeImage1.shape[0]
+        imageWidth1 = activeImage1.shape[1]
            
         
-        x1 = (imageWidth / 2) - (cropWidth / 2)
-        x2 = (imageWidth / 2) + (cropWidth / 2)
-        y1 = 0 + topCut
-        y2 = imageHeight - bottomCut
-        rect = activeImage[y1:y2, x1:x2]
+        x1 = (imageWidth1 / 2) - (cropWidth1 / 2)
+        x2 = (imageWidth1 / 2) + (cropWidth1 / 2)
+        y1 = 0 + topCut1
+        y2 = imageHeight1 - bottomCut1
+        rect1 = activeImage1[y1:y2, x1:x2]
         
-        smoothed = cv2.GaussianBlur(src=rect, ksize=kernelSize, sigmaX=sigmaX, sigmaY=sigmaY)
+        smoothed1 = cv2.GaussianBlur(src=rect1, ksize=kernelSize, sigmaX=sigmaX, sigmaY=sigmaY)
         
-        height, width, depth = rect.shape
+        height1, width1, depth1 = rect1.shape
         
-        hsv = cv2.cvtColor(rect, cv2.cv.CV_BGR2HSV)
+        hsv1 = cv2.cvtColor(rect1, cv2.cv.CV_BGR2HSV)
         preMult = 255.0/360.0
         red, yellow, green, cyan, blue, magenta= 0 * preMult, 60 * preMult, 120 * preMult, 180 * preMult, 240 * preMult, 300 * preMult
         
         thresh = 40
-        redMask = colorFind(hsv, color=red, tightness=40, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
-        yellowMask = colorFind(hsv, color=yellow, tightness=40, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
-        greenMask =  colorFind(hsv, color=green, tightness=20, threshold=thresh, satMin=50, valueMin=50, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
-        cyanMask = colorFind(hsv, color=cyan, tightness=15, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
-        blueMask = colorFind(hsv, color=blue, tightness=15, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
-        magentaMask = colorFind(hsv, color=magenta, tightness=20, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
+        redMask = colorFind(hsv1, color=red, tightness=40, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
+        yellowMask = colorFind(hsv1, color=yellow, tightness=40, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
+        greenMask =  colorFind(hsv1, color=green, tightness=20, threshold=thresh, satMin=50, valueMin=50, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
+        cyanMask = colorFind(hsv1, color=cyan, tightness=15, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
+        blueMask = colorFind(hsv1, color=blue, tightness=15, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
+        magentaMask = colorFind(hsv1, color=magenta, tightness=20, threshold=thresh, satMin=150, valueMin=150, satMax=255, valueMax=255, ksize=(5,5), sigmaX=4.0, sigmaY=4.0)
         
-        cv2.imshow(fullFrame, activeImage)
-        cv2.imshow(cutFrame, rect)  
-        cv2.imshow(smoothedFrame, smoothed)
+        cv2.imshow(fullFrame1, activeImage1)
+        cv2.imshow(cutFrame1, rect1)  
+        cv2.imshow(smoothedFrame1, smoothed1)
         
-        cv2.imshow(redFrame, redMask)
-        cv2.imshow(yellowFrame, yellowMask)
-        cv2.imshow(greenFrame, greenMask)
-        cv2.imshow(cyanFrame, cyanMask)
-        cv2.imshow(blueFrame, blueMask)
-        cv2.imshow(magentaFrame, magentaMask)
+        cv2.imshow(redFrame1, redMask)
+        cv2.imshow(yellowFrame1, yellowMask)
+        cv2.imshow(greenFrame1, greenMask)
+        cv2.imshow(cyanFrame1, cyanMask)
+        cv2.imshow(blueFrame1, blueMask)
+        cv2.imshow(magentaFrame1, magentaMask)
     
         noteToBeOnSetList = [set([]), set([])]
         noteToTurnOnSetList = [set([]), set([])]

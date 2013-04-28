@@ -20,10 +20,7 @@ See http://pranith.wordpress.com/2012/11/29/opencv-2-4-2-in-ubuntu/ for instruct
 FluidSynth
 ----------
 
-See https://pypi.python.org/pypi/fluidsynth
-
-    sudo apt-get install fluidsynth
-    sudo pip install fluidsynth
+    sudo pip install fluidsynth   - https://pypi.python.org/pypi/fluidsynth
 
 Usage
 =====

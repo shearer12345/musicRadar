@@ -23,3 +23,12 @@ MusicVisualisation
     just shows a coloured spectrogram. Can't zoom in or alter the view.
 * http://www.sonicvisualiser.org/ - must download binary
 
+Soundfont editing
+-----------------
+
+Soundfont files (used by fluidsynth) can be edited/created with:
+
+* Swami (http://www.swamiproject.org/)
+
+
+* Polyphone (http://www.polyphone.fr/)
