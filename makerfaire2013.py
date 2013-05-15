@@ -5,12 +5,12 @@ Created on 6 Sep 2012
 '''
 
 bpm = 210
-cam = 2
+cam = 0
 
-resolution = (640,480)
+resolution = (320,240)
     
 #Region params
-sampleWidth = 1
+sampleWidth = 10
 edgeLeft1 = resolution[0] * 0.22
 edgeRight1 = resolution[0] * 0.7
 edgeTop1 = resolution[1] * 0.15
@@ -353,6 +353,7 @@ if __name__ == '__main__':
         
         #barTimeNormalised = 0.0
         barTimeNormalised = max(barTimeNormalised, 0.001)
+        barTimeNormalised = 0.5
         
         x1 = (barTimeNormalised * edgeLeft1) + (1.0-barTimeNormalised)*edgeRight1
         x2 = x1 + sampleWidth
@@ -411,19 +412,21 @@ if __name__ == '__main__':
                         break
     
         lastNote = -50
+        #this is getting hit today
         for index, value in enumerate(yellowMask):
             for index2, value in enumerate(value):
                 if value > 0:
-                    channelListIndex = drums
-                    r = noteRangeList[drums]
-                    m = noteMinList[drums]
-                    note = int((float(index) * (r/400.0))+m)
+                    r = noteRangeList[melody]
+                    m = noteMinList[melody]
+                    note = 50#int((float(index) * (r/100.0))+m)
+                    print note, 
+                    note = scale[note % len(scale)]
+                    print note
+                    #print index, note
                     if (lastNote < 0 or abs(note - lastNote) < lastNoteThresh): #prevent notes too near
                         lastNote = note
-                        #print index, note
-                        #noteToBeOnSetList[drums].add(note)
-                        break
-        
+                        noteToBeOnSetList[melody].add(note)
+                        break 
         #3
         lastNote = -50
         for index, value in enumerate(greenMask):
